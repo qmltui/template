@@ -1,0 +1,53 @@
+---
+# C++ Clang-Format Configuration (matching QmlTui conventions)
+Language: Cpp
+BasedOnStyle: LLVM
+Standard: c++20
+
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+AccessModifierOffset: -4
+NamespaceIndentation: None
+
+BreakBeforeBraces: Attach
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: WithoutElse
+AllowShortLambdasOnASingleLine: All
+AllowShortBlocksOnASingleLine: Empty
+
+PointerAlignment: Left
+ReferenceAlignment: Left
+
+IncludeBlocks: Preserve
+SortIncludes: false
+
+FixNamespaceComments: true
+SpacesBeforeTrailingComments: 1
+
+StatementMacros:
+  - Q_OBJECT
+  - Q_GADGET
+  - QML_ELEMENT
+  - QML_NAMED_ELEMENT
+  - QML_UNCREATABLE
+  - QML_ATTACHED
+  - QML_SINGLETON
+  - QML_ANONYMOUS
+  - QML_FOREIGN
+  - QML_VALUE_TYPE
+  - QML_STRUCTURED_VALUE
+  - QML_CONSTRUCTIBLE_VALUE
+  - Q_DISABLE_COPY
+  - Q_DISABLE_MOVE
+  - Q_DISABLE_COPY_MOVE
+  - Q_DECLARE_FLAGS
+  - Q_DECLARE_OPERATORS_FOR_FLAGS
+  - Q_ENUM
+  - Q_ENUMS
+  - Q_FLAG
+  - Q_FLAGS
+  - Q_CLASSINFO
+  - Q_INTERFACES
+...

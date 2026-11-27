@@ -1,0 +1,17 @@
+# Build directories
+build/
+build-*/
+
+# Generated editor & tooling state
+.qmlls.ini
+*.qmlls.ini
+.qmltui/
+CMakeUserPresets.json
+.cache/
+.qtcreator/
+
+# Logs and local artifacts
+*.log
+Testing/
+Temporary/
+*:Zone.Identifier

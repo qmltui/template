@@ -1,0 +1,133 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: linux
+            os: ubuntu-24.04
+            qt_host: linux
+            qt_arch: linux_gcc_64
+          - name: macos
+            os: macos-latest
+            qt_host: mac
+            qt_arch: clang_64
+          - name: windows
+            os: windows-2022
+            qt_host: windows
+            qt_arch: win64_msvc2022_64
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: seanmiddleditch/gha-setup-ninja@v5
+
+      - name: Install Qt 6.8
+        id: install-qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.*'
+          host: ${{ matrix.qt_host }}
+          target: desktop
+          arch: ${{ matrix.qt_arch }}
+          cache: true
+
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure
+        shell: bash
+        run: |
+          qt_dir="${{ steps.install-qt.outputs.qt-root-dir }}"
+          qt_dir="${qt_dir//\\//}"
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_PREFIX_PATH="${qt_dir}" \
+            -DBUILD_TESTING=ON
+
+      - name: Build and lint QML
+        shell: bash
+        run: |
+          cmake --build build --target my_app_qmllint --parallel
+          cmake --build build --parallel
+
+      - name: Run CTest scenarios (POSIX)
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          ctest --test-dir build --output-on-failure
+          ./build/bin/qmltui-runner --clock virtual --sweep --idle-ms 300 --ruler -- ./build/bin/my_app
+
+      - name: Run CTest scenarios (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $env:PATH = "${{ steps.install-qt.outputs.qt-root-dir }}\bin;$env:PATH"
+          ctest --test-dir build --output-on-failure
+          .\build\bin\qmltui-runner.exe --clock virtual --sweep --idle-ms 300 --ruler -- .\build\bin\my_app.exe
+
+  # Trigger manually (Actions -> CI -> Run workflow) to verify WebAssembly output.
+  wasm:
+    name: webassembly (xterm.js)
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: seanmiddleditch/gha-setup-ninja@v5
+
+      - name: Setup Emscripten 3.1.56 (Qt 6.8)
+        uses: mymindstorm/setup-emsdk@v14
+        with:
+          version: '3.1.56'
+          actions-cache-folder: emsdk-cache
+
+      - name: Install Qt 6.8 Host
+        id: qt-host
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.*'
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          cache: true
+
+      - name: Install Qt 6.8 WebAssembly
+        id: qt-wasm
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.*'
+          host: all_os
+          target: wasm
+          arch: wasm_singlethread
+          cache: true
+
+      - name: Build WebAssembly bundle
+        shell: bash
+        run: |
+          cmake -S . -B build-wasm -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="${{ steps.qt-wasm.outputs.qt-root-dir }}/lib/cmake/Qt6/qt.toolchain.cmake" \
+            -DCMAKE_BUILD_TYPE=MinSizeRel \
+            -DQT_HOST_PATH="${{ steps.qt-host.outputs.qt-root-dir }}" \
+            -DBUILD_TESTING=OFF
+          cmake --build build-wasm --parallel
+          test -s build-wasm/bin/my_app.wasm
+          test -s build-wasm/bin/my_app.js
+          test -s build-wasm/bin/my_app.html
